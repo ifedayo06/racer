@@ -4,7 +4,7 @@ lib=bin/render.so
 
 $(lib): $(src)
 	gcc -c $(src) -o $(obj) -fPIC
-	gcc -shared -o $(lib) $(obj)
+	gcc -shared -o $(lib) $(obj) 
 
 .PHONY: clean
 

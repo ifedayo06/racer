@@ -1,4 +1,4 @@
-.o
-.out
-.pyc
-.so
+*.o
+*.out
+*.pyc
+*.so

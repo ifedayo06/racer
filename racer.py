@@ -21,8 +21,32 @@ def load_func(name, path):
 c_render = load_func("render", "bin")
 
 class Camera:
-    def __init__(self):
+    def __init__(self, display):
         self.pos = self.x, self.y, self.z = 0, 0, 0
+        # Referència al display actiu com a array de píxels
+        self.display = display
+        self.pixels = pygame.surfarray.pixels2d(display)
+        self.phi = 0
+        self.theta = np.pi/8
+        # Crea matriu de rotació
+        self.C = np.zeros((3, 3))
+        self.update_rot_matrix()
+
+    def update_rot_matrix(self):
+        cphi = np.cos(self.phi)
+        ctheta = np.cos(self.theta)
+        sphi = np.sin(self.phi)
+        stheta = np.sin(self.theta)
+        self.C[0, 0] = cphi
+
+    def draw_floor(self, level_pixels):
+        """Dibuixa en self.pixels el terra donat per level_pixels."""
+        self.display.lock()
+        c_render(self.pixels,
+                 level_pixels,
+                 *self.pixels.shape, 
+                 *level_pixels.shape)
+        self.display.unlock()
 
 class Racer:
     def __init__(self, w, h):
@@ -35,12 +59,12 @@ class Racer:
         self.running = True
         self.level = pygame.image.load("maps/test.png").convert()
         self.level_pixels = pygame.surfarray.pixels2d(self.level)
-        print(self.level_pixels)
-        self.camera = Camera()
+        self.camera = Camera(self.display)
         self.camera.y = 128
         # TODO: must lock surface!
         i = 0
         t0 = self.clock.tick()
+        self.display.fill((0, 128, 255))
         while self.running:
             # Escaneja l'entrada del teclat
             events = pygame.event.get()
@@ -70,11 +94,7 @@ class Racer:
                     self.camera.x -= 20
 
     def draw_screen(self):
-        self.display.lock()
-        c_render(self.display_pixels,
-                 self.level_pixels,
-                 self.w, self.h, *self.level_pixels.shape)
-        self.display.unlock()
+        self.camera.draw_floor(self.level_pixels)
         pygame.display.flip()
 
     def py_draw_screen(self):
@@ -101,6 +121,7 @@ class Racer:
         pygame.display.flip()
 
 if __name__ == "__main__":
-    w, h = 640, 480
+    h = 480
+    w = int(16/9*480)
     joc = Racer(w, h)
     joc.mainloop()

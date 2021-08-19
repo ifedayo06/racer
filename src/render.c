@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <math.h>
 #include <stdio.h>
+#include <omp.h>
 
 unsigned modulo(int x, unsigned y)
 {
@@ -9,7 +10,23 @@ unsigned modulo(int x, unsigned y)
     return mod;
 };
 
-void render(uint32_t* display, uint32_t* ground, int wd, int hd, int wg, int hg)
+int min(int x, int y)
+{
+    return x > y ? y : x;
+};
+
+int max(int x, int y)
+{
+    return x > y ? x : y;
+};
+
+void render(
+        uint32_t* display, 
+        uint32_t* ground, 
+        int wd, 
+        int hd, 
+        int wg, 
+        int hg)
 {
     /* Pinta el terra en la pantalla */
     const float D = 320;
@@ -22,6 +39,7 @@ void render(uint32_t* display, uint32_t* ground, int wd, int hd, int wg, int hg)
     int ymax = hd/2-D*tan(theta);
     ymax = ymax > hd ? hd : ymax;
     ymax = ymax < 0 ? 0 : ymax;
+    #pragma omp parallel for 
     for (int j = ymax; j < hd; j++)
     {
         float yp = hd/2-j;

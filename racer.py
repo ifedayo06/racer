@@ -20,6 +20,10 @@ def load_func(name, path):
 
 c_render = load_func("render", "bin")
 
+class Camera:
+    def __init__(self):
+        self.pos = self.x, self.y, self.z = 0, 0, 0
+
 class Racer:
     def __init__(self, w, h):
         self.size = self.w, self.h = w, h
@@ -32,6 +36,8 @@ class Racer:
         self.level = pygame.image.load("maps/test.png").convert()
         self.level_pixels = pygame.surfarray.pixels2d(self.level)
         print(self.level_pixels)
+        self.camera = Camera()
+        self.camera.y = 128
         # TODO: must lock surface!
         i = 0
         t0 = self.clock.tick()
@@ -53,12 +59,45 @@ class Racer:
             if event.type == pygame.QUIT:
                 self.running = False
 
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_w:
+                    self.camera.z -= 20
+                elif event.key == pygame.K_s:
+                    self.camera.z += 20
+                elif event.key == pygame.K_d:
+                    self.camera.x += 20
+                elif event.key == pygame.K_a:
+                    self.camera.x -= 20
+
     def draw_screen(self):
         self.display.lock()
         c_render(self.display_pixels,
                  self.level_pixels,
                  self.w, self.h, *self.level_pixels.shape)
         self.display.unlock()
+        pygame.display.flip()
+
+    def py_draw_screen(self):
+        """ PROTOTIP DE FUNCIO """
+        # Linia de l'horitzo
+        D = self.w//2
+        theta = np.pi/8
+        y_hor = int(max(0, min(self.h/2-D*np.tan(theta), self.h)))
+        cth = np.cos(theta)
+        sth = np.sin(theta)
+        ny, nx = self.level_pixels.shape
+        for j in range(y_hor, self.h):
+            yp = self.h//2-j
+            lamb = self.camera.y/(D*sth-yp*cth)
+            for i in range(self.w):
+                xp = i-self.w//2
+                # Calculo la posicio
+                xw = lamb*xp+self.camera.x
+                zw = lamb*(-yp*sth-D*cth)+self.camera.z
+                # Pinto la posicio de la textura
+                xw = int(xw) % nx
+                zw = int(zw) % ny
+                self.display_pixels[i, j] = self.level_pixels[xw, zw]
         pygame.display.flip()
 
 if __name__ == "__main__":

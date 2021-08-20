@@ -4,6 +4,7 @@ import ctypes
 import pygame
 import numpy as np
 pygame.init()
+pygame.key.set_repeat(16)
 
 # Carrega la llibreria de C...
 def load_func(name, path):
@@ -14,7 +15,18 @@ def load_func(name, path):
     c_render = lib.render
     # Tipus arguments d'entrada
     uint32_p = np.ctypeslib.ndpointer(dtype=np.uint32, ndim=2, )
-    c_render.argtypes = [uint32_p, uint32_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+    f32_p2 = np.ctypeslib.ndpointer(dtype=np.float32, ndim=2, )
+    f32_p1 = np.ctypeslib.ndpointer(dtype=np.float32, ndim=1, )
+    c_render.argtypes = [uint32_p,      # *display
+                         uint32_p,      # *ground
+                         f32_p1,        # acw[3]
+                         f32_p2,        # C[9]
+                         ctypes.c_float,# D
+                         ctypes.c_int,  # wd
+                         ctypes.c_int,  # hd
+                         ctypes.c_int,  # wg
+                         ctypes.c_int   # hg
+                        ]
     c_render.restype = None
     return c_render
 
@@ -22,28 +34,35 @@ c_render = load_func("render", "bin")
 
 class Camera:
     def __init__(self, display):
-        self.pos = self.x, self.y, self.z = 0, 0, 0
+        self.pos = self.x, self.y, self.z = np.asarray((0, 0, 0), dtype=np.float32)
         # Referència al display actiu com a array de píxels
         self.display = display
         self.pixels = pygame.surfarray.pixels2d(display)
         self.phi = 0
         self.theta = np.pi/8
+        self.D = self.display.get_width()/2
         # Crea matriu de rotació
-        self.C = np.zeros((3, 3))
+        self.C = np.zeros((3, 3), dtype=np.float32, order="C")
         self.update_rot_matrix()
 
     def update_rot_matrix(self):
+        """Actualitza la matriu de rotació del sistema."""
         cphi = np.cos(self.phi)
         ctheta = np.cos(self.theta)
         sphi = np.sin(self.phi)
         stheta = np.sin(self.theta)
-        self.C[0, 0] = cphi
+        self.C[:, 0] = cphi, sphi*stheta, -sphi*ctheta
+        self.C[:, 1] = 0, ctheta, stheta
+        self.C[:, 2] = sphi, -cphi*stheta, cphi*ctheta
 
     def draw_floor(self, level_pixels):
         """Dibuixa en self.pixels el terra donat per level_pixels."""
         self.display.lock()
         c_render(self.pixels,
                  level_pixels,
+                 self.pos,
+                 self.C,
+                 self.D,
                  *self.pixels.shape, 
                  *level_pixels.shape)
         self.display.unlock()
@@ -60,7 +79,9 @@ class Racer:
         self.level = pygame.image.load("maps/test.png").convert()
         self.level_pixels = pygame.surfarray.pixels2d(self.level)
         self.camera = Camera(self.display)
-        self.camera.y = 128
+        self.camera.pos[1] = 128
+        self.camera.phi = np.pi
+        self.camera.update_rot_matrix()
         # TODO: must lock surface!
         i = 0
         t0 = self.clock.tick()
@@ -85,13 +106,13 @@ class Racer:
 
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_w:
-                    self.camera.z -= 20
+                    self.camera.pos[2] += 20
                 elif event.key == pygame.K_s:
-                    self.camera.z += 20
+                    self.camera.pos[2] -= 20
                 elif event.key == pygame.K_d:
-                    self.camera.x += 20
+                    self.camera.pos[0] += 20
                 elif event.key == pygame.K_a:
-                    self.camera.x -= 20
+                    self.camera.pos[0] -= 20
 
     def draw_screen(self):
         self.camera.draw_floor(self.level_pixels)

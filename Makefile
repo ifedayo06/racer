@@ -1,7 +1,7 @@
 src=src/render.c
 obj=bin/render.o
 lib=bin/render.so
-flags= -fopenmp 
+flags= -fopenmp
 
 $(lib): $(src)
 	gcc -c $(src) -o $(obj) -fPIC $(flags)

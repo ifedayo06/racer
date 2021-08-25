@@ -26,6 +26,7 @@ void render(
         float acw[3],
         float C[9],
         float D,
+        float over_lamb,     // Factor d'escala màxim, regula la visió
         int wd, 
         int hd, 
         int wg, 
@@ -33,7 +34,7 @@ void render(
 {
     /* Pinta el terra en la pantalla */
     // Línia de l'horitzó
-    int ymax = hd/2-D*C[5]/C[4];
+    int ymax = hd/2-(D*C[5]-acw[1]*over_lamb)/C[4];
     ymax = ymax > hd ? hd : ymax;
     ymax = ymax < 0 ? 0 : ymax;
 

@@ -22,6 +22,7 @@ def load_func(name, path):
                          f32_p1,        # acw[3]
                          f32_p2,        # C[9]
                          ctypes.c_float,# D
+                         ctypes.c_float,# over_lamb
                          ctypes.c_int,  # wd
                          ctypes.c_int,  # hd
                          ctypes.c_int,  # wg
@@ -33,7 +34,7 @@ def load_func(name, path):
 c_render = load_func("render", "bin")
 
 class Camera:
-    def __init__(self, display):
+    def __init__(self, display, lamb_max):
         self.pos = self.x, self.y, self.z = np.asarray((0, 0, 0), dtype=np.float32)
         # Referència al display actiu com a array de píxels
         self.display = display
@@ -42,18 +43,25 @@ class Camera:
         self.theta = np.pi/8
         self.D = self.display.get_width()/2
         # Crea matriu de rotació
+        self.direction = np.zeros(3)
         self.C = np.zeros((3, 3), dtype=np.float32, order="C")
         self.update_rot_matrix()
+        self.over_lamb = 1/lamb_max
 
-    def update_rot_matrix(self):
+    def update_rot_matrix(self, phi=None, theta=None):
         """Actualitza la matriu de rotació del sistema."""
+        if phi:
+            self.phi = phi
+        if theta:
+            self.theta = theta
         cphi = np.cos(self.phi)
         ctheta = np.cos(self.theta)
         sphi = np.sin(self.phi)
         stheta = np.sin(self.theta)
-        self.C[:, 0] = cphi, sphi*stheta, -sphi*ctheta
-        self.C[:, 1] = 0, ctheta, stheta
-        self.C[:, 2] = sphi, -cphi*stheta, cphi*ctheta
+        self.direction[:] = (sphi, 0, -cphi)
+        self.C[0, :] = cphi, sphi*stheta, -sphi*ctheta
+        self.C[1, :] = 0, ctheta, stheta
+        self.C[2, :] = sphi, -cphi*stheta, cphi*ctheta
 
     def draw_floor(self, level_pixels):
         """Dibuixa en self.pixels el terra donat per level_pixels."""
@@ -63,6 +71,7 @@ class Camera:
                  self.pos,
                  self.C,
                  self.D,
+                 self.over_lamb,
                  *self.pixels.shape, 
                  *level_pixels.shape)
         self.display.unlock()
@@ -78,10 +87,9 @@ class Racer:
         self.running = True
         self.level = pygame.image.load("maps/test.png").convert()
         self.level_pixels = pygame.surfarray.pixels2d(self.level)
-        self.camera = Camera(self.display)
-        self.camera.pos[1] = 128
-        self.camera.phi = np.pi
-        self.camera.update_rot_matrix()
+        self.camera = Camera(self.display, 10)
+        self.camera.pos[1] = 32
+        self.camera.update_rot_matrix(np.pi)
         # TODO: must lock surface!
         i = 0
         t0 = self.clock.tick()
@@ -105,14 +113,15 @@ class Racer:
                 self.running = False
 
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_w:
-                    self.camera.pos[2] += 20
-                elif event.key == pygame.K_s:
-                    self.camera.pos[2] -= 20
-                elif event.key == pygame.K_d:
-                    self.camera.pos[0] += 20
-                elif event.key == pygame.K_a:
-                    self.camera.pos[0] -= 20
+                if event.key == pygame.K_z:
+                    self.camera.pos[:] += self.camera.direction*20
+                    print(self.camera.pos)
+                elif event.key == pygame.K_LEFT:
+                    self.camera.phi -= .1
+                    self.camera.update_rot_matrix()
+                elif event.key == pygame.K_RIGHT:
+                    self.camera.phi += .1
+                    self.camera.update_rot_matrix()
 
     def draw_screen(self):
         self.camera.draw_floor(self.level_pixels)

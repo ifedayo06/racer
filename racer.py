@@ -4,7 +4,7 @@ import ctypes
 import pygame
 import numpy as np
 pygame.init()
-pygame.key.set_repeat(16)
+#pygame.key.set_repeat(16)
 
 # Carrega la llibreria de C...
 def load_func(name, path):
@@ -48,6 +48,12 @@ class Camera:
         self.update_rot_matrix()
         self.over_lamb = 1/lamb_max
 
+        # PROPIETATS FÍSIQUES
+        self.b = 5e-4
+        self.v = np.zeros(3)
+        self.ext_force = np.zeros(3)
+        self.over_m = 1
+
     def update_rot_matrix(self, phi=None, theta=None):
         """Actualitza la matriu de rotació del sistema."""
         if phi:
@@ -75,6 +81,11 @@ class Camera:
                  *self.pixels.shape, 
                  *level_pixels.shape)
         self.display.unlock()
+    
+    def update(self, dt):
+        """Actualitza la força impresa sobre el cos."""
+        self.v[:] += self.over_m*(self.ext_force-self.v*self.b)*dt
+        self.pos[:] += self.v*dt
 
 class Racer:
     def __init__(self, w, h):
@@ -99,13 +110,16 @@ class Racer:
             events = pygame.event.get()
             self.handle_input(events)
             # Actualitza la pantalla
+            dt = self.clock.tick()
+            self.camera.update(dt)
             self.draw_screen()
+            """
             i += 1
             if i > 1000:
-                t1 = self.clock.tick()
-                print(f"FPS = {1e6/(t1-t0)} s^-1")
+                print(f"FPS = {1e6/(dt-t0)} s^-1")
                 i = 0
                 t0 = self.clock.tick()
+            """
 
     def handle_input(self, events):
         for event in events:
@@ -114,14 +128,17 @@ class Racer:
 
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_z:
-                    self.camera.pos[:] += self.camera.direction*20
-                    print(self.camera.pos)
+                    self.camera.ext_force = 1e-3*self.camera.direction
                 elif event.key == pygame.K_LEFT:
                     self.camera.phi -= .1
                     self.camera.update_rot_matrix()
                 elif event.key == pygame.K_RIGHT:
                     self.camera.phi += .1
                     self.camera.update_rot_matrix()
+
+            elif event.type == pygame.KEYUP:
+                if event.key == pygame.K_z:
+                    self.camera.ext_force = 0*self.camera.direction
 
     def draw_screen(self):
         self.camera.draw_floor(self.level_pixels)

@@ -49,10 +49,15 @@ class Camera:
         self.over_lamb = 1/lamb_max
 
         # PROPIETATS FÍSIQUES
+        self.a = 1e-3
         self.b = 5e-4
         self.v = np.zeros(3)
         self.ext_force = np.zeros(3)
         self.over_m = 1
+        self.accelerate = False
+        self.rotate = False
+        self.sense = 1
+        self.omega = 1e-3
 
     def update_rot_matrix(self, phi=None, theta=None):
         """Actualitza la matriu de rotació del sistema."""
@@ -84,7 +89,20 @@ class Camera:
     
     def update(self, dt):
         """Actualitza la força impresa sobre el cos."""
-        self.v[:] += self.over_m*(self.ext_force-self.v*self.b)*dt
+        if self.rotate:
+            if self.sense == 1:
+                self.phi += self.omega*dt
+            else:
+                self.phi -= self.omega*dt
+            if (self.phi > 2*np.pi):
+                self.phi -= 2*np.pi
+            elif (self.phi < 0):
+                self.phi += 2*np.pi
+            self.update_rot_matrix()
+        if self.accelerate:
+            self.v[:] += self.over_m*(self.a*self.direction-self.v*self.b)*dt
+        else:
+            self.v[:] += self.over_m*(-self.v*self.b)*dt
         self.pos[:] += self.v*dt
 
 class Racer:
@@ -128,17 +146,23 @@ class Racer:
 
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_z:
-                    self.camera.ext_force = 1e-3*self.camera.direction
+                    self.camera.accelerate = True
                 elif event.key == pygame.K_LEFT:
-                    self.camera.phi -= .1
-                    self.camera.update_rot_matrix()
+                    self.camera.rotate = True
+                    self.camera.sense = -1
+                    #self.camera.ext_force -= np.cross(self.camera.v, (0, 1e-4, 0))
                 elif event.key == pygame.K_RIGHT:
-                    self.camera.phi += .1
-                    self.camera.update_rot_matrix()
+                    self.camera.rotate = True
+                    self.camera.sense = 1
+                    #self.camera.ext_force += np.cross(self.camera.v, (0, 1e-4, 0))
 
             elif event.type == pygame.KEYUP:
                 if event.key == pygame.K_z:
-                    self.camera.ext_force = 0*self.camera.direction
+                    self.camera.accelerate = False
+                elif event.key == pygame.K_LEFT:
+                    self.camera.rotate = False
+                elif event.key == pygame.K_RIGHT:
+                    self.camera.rotate = False
 
     def draw_screen(self):
         self.camera.draw_floor(self.level_pixels)
